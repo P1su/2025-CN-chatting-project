@@ -1,14 +1,16 @@
 import './App.css';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 
 function App() {
   const [name, setName] = useState('');
+  const [room, setRoom] = useState('');
   const [isEnter, setIsEnter] = useState(false);
   const [socket, setSocket] = useState(null);
   const [message, setMessage] = useState('');
   const [chatList, setChatList] = useState([]);
   const [users, setUsers] = useState([]);
+  const chatBoxRef = useRef(null);
 
   useEffect(() => {
     if (socket) {
@@ -38,6 +40,12 @@ function App() {
     };
   }, [socket]);
 
+  useEffect(() => {
+    if (chatBoxRef.current) {
+      chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
+    }
+  }, [chatList]);
+
   // 서버 입장
   const handleHello = (e) => {
     e.preventDefault();
@@ -47,7 +55,7 @@ function App() {
       withCredentials: true,
     });
 
-    newSocket.emit('set nickname', name);
+    newSocket.emit('join room', { nickname: name, room });
     setSocket(newSocket);
     setIsEnter((prev) => !prev);
   };
@@ -59,6 +67,8 @@ function App() {
 
     setIsEnter((prev) => !prev);
     setChatList([]);
+    setUsers([]);
+    setRoom([]);
   };
 
   // 채팅 입력 핸들러
@@ -68,7 +78,8 @@ function App() {
 
   // 채팅 전송
   const submitMessage = () => {
-    socket.emit('chat message', message);
+    if (message.trim() === '') return;
+    socket.emit('chat message', { room, message });
     setMessage('');
   };
 
@@ -80,10 +91,14 @@ function App() {
           <label>닉네임</label>
           <input
             type='text'
-            onChange={(e) => {
-              setName(e.target.value);
-            }}
+            onChange={(e) => setName(e.target.value)}
             value={name}
+          />
+          <label>방 이름</label>
+          <input
+            type='text'
+            onChange={(e) => setRoom(e.target.value)}
+            value={room}
           />
           <button type='submit'>입장하기</button>
         </form>
@@ -91,36 +106,49 @@ function App() {
         <>
           <div className='box'>
             <section className='user-list-section'>
-              <h2>현재 접속중인 인원</h2>
+              <h2>
+                현재 접속중인 인원 <span>({Object.keys(users).length}명)</span>
+              </h2>
               {Object.keys(users).map((item) => (
-                <p>{users[item]}</p>
+                <p key={item}>{users[item]}</p>
               ))}
             </section>
             <section className='chat-section'>
               <h2>채팅창</h2>
-              <div className='chat-box'>
-                {chatList.map(({ nickname, message, idx }) =>
+              <div className='chat-box' ref={chatBoxRef}>
+                {chatList.map(({ nickname, message }, idx) =>
                   nickname === undefined ? (
-                    <div className='notice'>{message}</div>
+                    <div key={idx} className='notice'>
+                      {message}
+                    </div>
                   ) : (
-                    <div className={`${nickname === name ? 'self' : 'other'}`}>
+                    <div
+                      key={idx}
+                      className={`${nickname === name ? 'self' : 'other'}`}
+                    >
                       <div
                         className={`${
-                          nickname === name
-                            ? 'self-nickcname'
-                            : 'other-nickname'
+                          nickname === name ? 'self-nickname' : 'other-nickname'
                         }`}
                       >
                         {nickname}
                       </div>
-                      <div key={idx} className='message-bubble'>
-                        {message}
-                      </div>
+                      <div className='message-bubble'>{message}</div>
                     </div>
                   )
                 )}
               </div>
-              <input type='text' value={message} onChange={handleMessage} />
+              <input
+                type='text'
+                value={message}
+                onChange={handleMessage}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    submitMessage();
+                  }
+                }}
+              />
               <button onClick={submitMessage}>채팅 보내기</button>
             </section>
           </div>

@@ -16,34 +16,53 @@ const io = new Server(server, {
 app.use(express.static('public'));
 
 let nicknames = {};
+let rooms = {}; // socket.id -> room
 
 io.on('connection', (socket) => {
   console.log(`[${socket.id}] user connected`);
 
-  socket.on('set nickname', (nickname) => {
+  socket.on('join room', ({ nickname, room }) => {
     nicknames[socket.id] = nickname;
-    console.log(`[${socket.id}] 닉네임 설정됨: ${nickname}`);
+    rooms[socket.id] = room;
 
-    io.emit('notice', `🟢 ${nickname}님이 입장하였습니다.`);
-    io.emit('users', nicknames);
+    socket.join(room);
+
+    console.log(`[${socket.id}] ${nickname}님이 [${room}] 방에 입장`);
+
+    io.to(room).emit('notice', `🟢 ${nickname}님이 입장하였습니다.`);
+    io.to(room).emit('users', getUsersInRoom(room));
   });
 
-  socket.on('chat message', (msg) => {
+  socket.on('chat message', ({ room, message }) => {
     const nickname = nicknames[socket.id] || '알 수 없음';
-    console.log(`[${nickname}] ${msg}`);
-    io.emit('chat message', { id: socket.id, nickname, message: msg });
+    console.log(`[${nickname}] [${room}] ${message}`);
+    io.to(room).emit('chat message', { id: socket.id, nickname, message });
   });
 
   socket.on('disconnect', () => {
     const nickname = nicknames[socket.id] || '알 수 없음';
+    const room = rooms[socket.id];
 
-    io.emit('notice', `🔴 ${nickname}님이 퇴장하였습니다.`);
+    io.to(room).emit('notice', `🔴 ${nickname}님이 퇴장하였습니다.`);
 
     console.log(`[${socket.id}] (${nickname}) user disconnected`);
     delete nicknames[socket.id];
-    io.emit('users', nicknames);
+    delete rooms[socket.id];
+
+    io.to(room).emit('users', getUsersInRoom(room));
   });
 });
+
+function getUsersInRoom(room) {
+  const roomUsers = {};
+  for (const [id, name] of Object.entries(nicknames)) {
+    const socket = io.sockets.sockets.get(id);
+    if (socket?.rooms.has(room)) {
+      roomUsers[id] = name;
+    }
+  }
+  return roomUsers;
+}
 
 server.listen(3000 || '0.0.0.0', () => {
   console.log('Server is running at http://localhost:3000');
