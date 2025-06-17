@@ -22,9 +22,16 @@ io.on('connection', (socket) => {
   console.log(`[${socket.id}] user connected`);
 
   socket.on('join room', ({ nickname, room }) => {
+    for (const [id, name] of Object.entries(nicknames)) {
+      console.log(name, nickname);
+      if (name === nickname) {
+        io.to(socket.id).emit('dup_nickname', '이미 존재하는 닉네임입니다.');
+        console.log('이미 존재하는 닉네임');
+        return;
+      }
+    }
     nicknames[socket.id] = nickname;
     rooms[socket.id] = room;
-
     socket.join(room);
 
     console.log(`[${socket.id}] ${nickname}님이 [${room}] 방에 입장`);

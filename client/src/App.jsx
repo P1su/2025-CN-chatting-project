@@ -30,7 +30,13 @@ function App() {
 
       socket.on('users', (users) => {
         console.log('유저 목록');
+        console.log(users);
         setUsers(users);
+      });
+
+      socket.on('dup_nickname', (msg) => {
+        setIsEnter((prev) => !prev);
+        alert(msg);
       });
     }
 
@@ -56,6 +62,7 @@ function App() {
     });
 
     newSocket.emit('join room', { nickname: name, room });
+
     setSocket(newSocket);
     setIsEnter((prev) => !prev);
   };
