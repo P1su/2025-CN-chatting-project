@@ -60,7 +60,6 @@ function App() {
     const newSocket = io(import.meta.env.VITE_USER_PORT, {
       withCredentials: true,
     });
-
     newSocket.emit('join room', { nickname: name, room });
 
     setSocket(newSocket);
@@ -75,7 +74,8 @@ function App() {
     setIsEnter((prev) => !prev);
     setChatList([]);
     setUsers([]);
-    setRoom([]);
+    setRoom('');
+    setName('');
   };
 
   // 채팅 입력 핸들러
